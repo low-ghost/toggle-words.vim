@@ -125,12 +125,13 @@ begin = index if direction != '0' else col + index
 vim.current.line = construct_line_by_replacement(current_line, begin, formatted_new_word, original_word)
 vim.command("call cursor(%s, %s)"% (row, begin + 1))
 EOD
-	"TODO: these fail with 'not enough arguments'
+
 	if (a:dir)
 		silent! call repeat#set("\<Plug>ToggleWordReverse")
 	else
 		silent! call repeat#set("\<Plug>ToggleWord")
 	endif
+
 endfunction
 
 command! ToggleWord :call ToggleWord(0)
