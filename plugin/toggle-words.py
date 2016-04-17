@@ -2,45 +2,97 @@ import vim
 import re
 
 
+def vim_find_start_end_of_match(text, to_find):
+    """Find for vim."""
+    [test, to_replace] = to_find
+    eval_match = "match('%s', '%s')" % (text, test)
+    eval_match_end = "matchend('%s', '%s')" % (text, test)
+    current_find_start = int(vim.eval(eval_match))
+    return [
+      test,
+      to_replace,
+      current_find_start,
+      int(vim.eval(eval_match_end))
+    ] \
+        if current_find_start > -1 \
+        else [test, to_replace, None, None]
+
+
+def python_find_start_end_of_match(text, to_find):
+    """Find for python."""
+    # Perform actual find, ignoring case
+    current_find_obj = re.search(to_find, text, re.IGNORECASE)
+    return [
+      to_find,
+      to_find,
+      current_find_obj.start(),
+      current_find_obj.end()
+    ] \
+        if current_find_obj is not None \
+        else [to_find, to_find, None, None]
+
+
+def get_next_index_wrap(decrement, word_index, len_list_words):
+    """Wrap dec or inc around word index.
+
+    If last, use first and vice versa.
+    """
+    if decrement:
+        return word_index - 1 \
+            if word_index - 1 >= 0 else len_list_words - 1
+    return word_index + 1 \
+        if len_list_words != word_index + 1 else 0
+
+
 def find_closest_matching_word_in_line(text, direction, decrement, end_case):
     """Find first matching word from a list of lists.
 
     Returns index, word instance and next word.
     """
-    word_to_change = ''
-    next_word = ''
-    index = -1 if direction else 10000000
+    return_dict = {
+      "index": -1 if direction else 10000000,
+      "original_word": None,
+      "new_word": None,
+      "is_substitute": False,
+      "original_regex": None,
+    }
     # Get toggle words dict from vim's global variables
     toggle_words = vim.eval('g:toggle_words_dict_current')
     for list_words in toggle_words:
         len_list_words = len(list_words)
-        for word_index, word in enumerate(list_words):
-            # Perform actual find, ignoring case
-            current_find_obj = re.search(word, text, re.IGNORECASE)
-            if current_find_obj is not None:
-                current_find = current_find_obj.start()
-                # Only replace index etc if closer to cursor (based on dir)
-                if (not direction and current_find < index) or (
-                        direction and current_find > index):
-                    index = current_find
-                    word_to_change = current_find_obj.group()
-                    # Wrap dec or inc around word index
-                    # If last, use first and vice versa
-                    if decrement:
-                        next_index = word_index - 1 \
-                            if word_index - 1 >= 0 else len_list_words - 1
-                    else:
-                        next_index = word_index + 1 \
-                            if len_list_words != word_index + 1 else 0
-                    next_word = list_words[next_index]
-                    # break out of loop if found word is at cursor pos. 0
-                    match_case = current_find_obj.end() if direction else index
-                    print word_to_change
-                    if match_case == end_case:
-                        return [index, word_to_change, next_word]
-                    # if direction and end = col
-                        # return [index, word_to_change, next_word]
-    return [index, word_to_change, next_word]
+        for word_index, to_find in enumerate(list_words):
+            current_find = None
+            to_find_is_list = isinstance(to_find, list)
+            # Get start and end of word, as well as regex and the word
+            # with either python or vim functionality depending on list input
+            [test, word, start, end] = \
+                vim_find_start_end_of_match(text, to_find) \
+                if to_find_is_list \
+                else python_find_start_end_of_match(text, to_find)
+            # Only replace index etc if closer to cursor (based on dir)
+            if start is not None and (
+                    (not direction and start < return_dict["index"]) or
+                    (direction and start > return_dict["index"])):
+                # Set all new values except next_word
+                return_dict.update({
+                  "index": start,
+                  "original_word": word,
+                  "is_substitute": to_find_is_list,
+                  "original_regex": test,
+                })
+                next_index = get_next_index_wrap(
+                    decrement, word_index, len_list_words)
+                return_dict["new_word"] = list_words[next_index][1] \
+                    if isinstance(list_words[next_index], list) \
+                    else list_words[next_index]
+                # break out of loop if found word is at cursor pos. 0
+                # match_case = current_find_obj.end() if direction else index
+                # print 'end_case: %s' % (end_case)
+                # print 'match_case %s:' % (match_case)
+                # if match_case == end_case:
+                # return [index, word_to_change,
+                # next_word, original_regex, is_substitute]
+    return return_dict
 
 
 def get_word_attr(word):
@@ -77,6 +129,7 @@ def beginning_of_word(line):
 def ending_of_word(line):
     """Get row and col for the ending of word under cursor."""
     (row, col) = vim.current.window.cursor
+
     if (len(line) > col + 1 and line[col] != " " and
             line[col] != "\n" and line[col + 1] != " "):
         vim.command('normal! e')
@@ -101,20 +154,30 @@ def toggle_word(direction, decrement):
 
     if direction:
         (row, col) = ending_of_word(current_line)
-        text = current_line[:col]
+        text = current_line[:col + 1]
     else:
         (row, col) = beginning_of_word(current_line)
         text = current_line[col:]
 
     # Execute iterate_words and get back all info to recreate line
-    end_case = col if direction else 0
-    [index, original_word, new_word] = find_closest_matching_word_in_line(
+    end_case = col + 1 if direction else 0
+    match_info = find_closest_matching_word_in_line(
         text, direction, decrement, end_case)
 
+    print match_info
     # perform line replacement
-    if new_word:
-        formatted_new_word = format_new_word(original_word, new_word)
-        begin = index if direction else col + index
-        vim.current.line = construct_line_by_replacement(
-            current_line, begin, formatted_new_word, original_word)
-        vim.command("call cursor(%s, %s)" % (row, begin + 1))
+    if match_info["new_word"]:
+        formatted_new_word = format_new_word(
+            match_info["original_word"], match_info["new_word"])
+        if match_info["is_substitute"]:
+            eval_expr = "substitute('%s', '%s', '%s', '')" \
+                % (text, match_info["original_regex"], match_info["new_word"])
+            replacement = vim.eval(eval_expr)
+            vim.current.line = replacement + current_line[col:] \
+                if direction \
+                else current_line[:col] + replacement
+        else:
+            begin = match_info["index"] if direction else col + match_info["index"]
+            vim.current.line = construct_line_by_replacement(
+                current_line, begin, formatted_new_word, match_info["original_word"])
+            vim.command("call cursor(%s, %s)" % (row, begin + 1))

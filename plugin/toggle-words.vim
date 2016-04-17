@@ -25,7 +25,7 @@ let s:toggle_words_dict = {'*': [
     \ ['left', 'right'],
     \ ['yes', 'no'],
     \ ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-    \ ['january', 'february', 'may', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
+    \ ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
     \ ], }
 
 if exists('g:toggle_words_dict')
@@ -38,8 +38,7 @@ if exists('g:toggle_words_dict')
   endfor
 endif
 
-let s:plugin_path = escape(expand('<sfile>:p:h'), '\')
-exe 'pyfile ' . escape(s:plugin_path, ' ') . '/toggle-words.py'
+exe 'pyfile ' . escape(escape(expand('<sfile>:p:h'), '\'), ' ').'/toggle-words.py'
 
 function! s:toggle_word(dir, dec)
   let cur_filetype = &filetype
