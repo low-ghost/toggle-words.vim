@@ -6,9 +6,9 @@
 " line and allows both incrementing and decrementing words based on
 " commands and mappings (via plug, no default mappings provided)
 
-"if exists("g:load_toggle_words")
-   "finish
-"endif
+if exists("g:load_toggle_words")
+   finish
+endif
 
 let s:keepcpo= &cpo
 set cpo&vim
@@ -28,19 +28,15 @@ let g:default_toggle_words_dict = {'*': [
     \ ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
     \ ], }
 
-if exists('g:toggle_words_dict')
-    for key in keys(g:toggle_words_dict)
-        if has_key(g:default_toggle_words_dict, key)
-            call extend(g:default_toggle_words_dict[key], g:toggle_words_dict[key])
-        else
-            let g:default_toggle_words_dict[key] = g:toggle_words_dict[key]
-        endif
-    endfor
-endif
-
 pyfile ./toggle-words.py
 
 function! s:toggle_word(dir, dec)
+  let cur_ft = &ft
+  if !has_key(g:toggle_words_dict, cur_ft)
+    let g:toggle_words_dict_current = g:toggle_words_dict['*']
+  else
+    let g:toggle_words_dict_current = g:toggle_words_dict[cur_ft] + g:toggle_words_dict['*']
+  endif
 	if (a:dir)
     if (a:dec)
       python toggle_word(True, True)
