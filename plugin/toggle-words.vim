@@ -38,7 +38,8 @@ if exists('g:toggle_words_dict')
   endfor
 endif
 
-pyfile ./toggle-words.py
+let s:plugin_path = escape(expand('<sfile>:p:h'), '\')
+exe 'pyfile ' . escape(s:plugin_path, ' ') . '/toggle-words.py'
 
 function! s:toggle_word(dir, dec)
   let cur_filetype = &filetype
