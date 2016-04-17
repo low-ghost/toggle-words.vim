@@ -6,9 +6,9 @@
 " line and allows both incrementing and decrementing words based on
 " commands and mappings (via plug, no default mappings provided)
 
-if exists("g:load_toggle_words")
-   finish
-endif
+"if exists("g:load_toggle_words")
+   "finish
+"endif
 
 let s:keepcpo= &cpo
 set cpo&vim

@@ -2,7 +2,7 @@ import vim
 import re
 
 
-def find_closest_matching_word_in_line(text, direction, decrement):
+def find_closest_matching_word_in_line(text, direction, decrement, end_case):
     """Find first matching word from a list of lists.
 
     Returns index, word instance and next word.
@@ -34,8 +34,12 @@ def find_closest_matching_word_in_line(text, direction, decrement):
                             if len_list_words != word_index + 1 else 0
                     next_word = list_words[next_index]
                     # break out of loop if found word is at cursor pos. 0
-                    if not direction and index == 0:
+                    match_case = current_find_obj.end() if direction else index
+                    print word_to_change
+                    if match_case == end_case:
                         return [index, word_to_change, next_word]
+                    # if direction and end = col
+                        # return [index, word_to_change, next_word]
     return [index, word_to_change, next_word]
 
 
@@ -103,8 +107,9 @@ def toggle_word(direction, decrement):
         text = current_line[col:]
 
     # Execute iterate_words and get back all info to recreate line
+    end_case = col if direction else 0
     [index, original_word, new_word] = find_closest_matching_word_in_line(
-        text, direction, decrement)
+        text, direction, decrement, end_case)
 
     # perform line replacement
     if new_word:
