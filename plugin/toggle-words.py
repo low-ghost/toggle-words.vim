@@ -12,7 +12,7 @@ def find_closest_matching_word_in_line(text, direction, decrement):
     index = -1 if direction else 10000000
     # Get toggle words dict from vim's global variables
     toggle_words = vim.eval('g:toggle_words_dict_current')
-    for list_words in toggle_words['*']:
+    for list_words in toggle_words:
         len_list_words = len(list_words)
         for word_index, word in enumerate(list_words):
             # Perform actual find, ignoring case
