@@ -2,15 +2,20 @@ import vim
 import re
 
 
+def escape_vim_text(text):
+    """Escape single and double quotes."""
+    return text.replace("'", "\\'").replace('"', '\\"')
+
+
 def vim_find_match_info(text, to_find):
     """Find for vim.
 
     returns [test, match_content, start, end]
     """
-    print 'Vim find'
     [test, to_replace] = to_find
-    eval_match = "match('%s', '%s')" % (text, test)
-    eval_match_end = "matchend('%s', '%s')" % (text, test)
+    escaped_text = escape_vim_text(text)
+    eval_match = 'match("%s", \'%s\')' % (escaped_text, test)
+    eval_match_end = 'matchend("%s", \'%s\')' % (escaped_text, test)
     current_find_start = int(vim.eval(eval_match))
     return [
       test,
@@ -28,7 +33,7 @@ def python_find_match_info(text, to_find):
     returns [test, match_content, start, end]
     """
     # Perform actual find, ignoring case
-    current_find_obj = re.search(to_find, text, re.IGNORECASE)
+    current_find_obj = re.search(re.escape(to_find), text, re.IGNORECASE)
     return [
       to_find,
       current_find_obj.group(),
@@ -175,8 +180,8 @@ def toggle_word(direction, decrement):
         formatted_next_word = format_next_word(
             match_info["match_content"], match_info["next_word"])
         if match_info["is_substitute"]:
-            eval_expr = "substitute('%s', '%s', '%s', '')" \
-                % (text, match_info["original_regex"], match_info["next_word"])
+            eval_expr = 'substitute("%s", \'%s\', \'%s\', \'\')' \
+                % (escape_vim_text(text), match_info["original_regex"], match_info["next_word"])
             replacement = vim.eval(eval_expr)
             vim.current.line = replacement + current_line[col:] \
                 if direction \
