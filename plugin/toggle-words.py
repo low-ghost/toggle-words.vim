@@ -1,3 +1,8 @@
+"""Toggle Words, ctrl-a for word pairs and sets.
+
+Provides ctrl-a like toggling functionality to word pairs or sets.
+TODO: Something a little off with reverse vim words.
+"""
 import vim
 import re
 from difflib import Differ
@@ -8,10 +13,26 @@ def escape_vim_text(text):
     return text.replace("'", "\\'").replace('"', '\\"')
 
 
+def vim_match(text, test, method=None, unescaped=None):
+    """Perform match or matchend in vim."""
+    to_match = text if unescaped is None else escape_vim_text(text)
+
+    if method == 'end':
+        return int(vim.eval('matchend("%s", \'%s\')' % (to_match, test)))
+    if method == 'list':
+        return vim.eval('matchlist("%s", \'%s\')' % (to_match, test))
+    return int(vim.eval('match("%s", \'%s\')' % (to_match, test)))
+
+
+def vim_substitute(text, search, replace):
+    """Perform actual vim substitution."""
+    return vim.eval('substitute("%s", \'%s\', \'%s\', \'\')'
+                    % (escape_vim_text(text), search, replace))
+
+
 def vim_get_match_diff(escaped_text, test):
     """Diff of full match and match groups for capitalization reference."""
-    eval_match_list = 'matchlist("%s", \'%s\')' % (escaped_text, test)
-    match_list = vim.eval(eval_match_list)
+    match_list = vim_match(escaped_text, test, 'list')
     full_match, parts = match_list[0], ''.join(match_list[1:])
     diff = list(Differ().compare(parts, full_match))
 
@@ -25,16 +46,13 @@ def vim_find_match_info(text, to_find):
     returns [test, match_content, start, end]
     """
     test, to_replace = to_find[0], to_find[1]
-    escaped_text = escape_vim_text(text)
-    eval_match = 'match("%s", \'%s\')' % (escaped_text, test)
-    current_find_start = int(vim.eval(eval_match))
+    escaped = escape_vim_text(text)
+    start = vim_match(escaped, test)
 
-    if current_find_start > -1:
-        match_content = vim_get_match_diff(escaped_text, test) \
-          if len(to_find) > 2 else to_find[0]
-        eval_match_end = 'matchend("%s", \'%s\')' % (escaped_text, test)
-        return [test, match_content, current_find_start,
-                int(vim.eval(eval_match_end))]
+    if start > -1:
+        match_content = vim_get_match_diff(escaped, test) \
+            if len(to_find) > 2 else to_find[0]
+        return [test, match_content, start, vim_match(escaped, test, 'end')]
 
     return [test, to_replace, None, None]
 
@@ -76,12 +94,12 @@ def find_closest_matching_word_in_line(text, direction, decrement, end_case):
     Returns index, word instance or next word.
     """
     return_dict = {
-      "index": -1 if direction else 10000000,
-      "match_content": None,
-      "next_word": None,
-      "is_substitute": False,
-      "original_regex": None,
-      "guide_word": None,
+        "index": -1 if direction else 10000000,
+        "match_content": None,
+        "next_word": None,
+        "is_substitute": False,
+        "original_regex": None,
+        "guide_word": None,
     }
 
     # Get toggle words dict from vim's global variables
@@ -185,12 +203,6 @@ def get_init_data(direction):
     return [current_line, row, col, current_line[col:], 0]
 
 
-def vim_substitute(text, search, replace):
-    """Perform actual vim substitution."""
-    return vim.eval('substitute("%s", \'%s\', \'%s\', \'\')'
-                    % (escape_vim_text(text), search, replace))
-
-
 def toggle_word(direction, decrement):
     """Main toggle words function.
 
@@ -219,4 +231,4 @@ def toggle_word(direction, decrement):
                 current_line, begin, formatted_next_word,
                 match_info["match_content"])
 
-        vim.command("call cursor(%s, %s)" % (row, begin + 1))
+        vim.command("call cursor({row}, {start})".format(row=row, start=begin + 1))

@@ -6,9 +6,9 @@
 " line and allows both incrementing and decrementing words based on
 " commands and mappings (via plug, no default mappings provided)
 
-if exists("g:load_toggle_words")
-   finish
-endif
+"if exists("g:load_toggle_words")
+   "finish
+"endif
 
 let s:keepcpo= &cpo
 set cpo&vim
@@ -38,7 +38,7 @@ if exists('g:toggle_words_dict')
   endfor
 endif
 
-exe 'pyfile ' . escape(escape(expand('<sfile>:p:h'), '\'), ' ').'/toggle-words.py'
+exe 'py3file ' . escape(escape(expand('<sfile>:p:h'), '\'), ' ').'/toggle-words.py'
 
 function! s:toggle_word(dir, dec)
   let cur_filetype = &filetype
