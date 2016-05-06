@@ -148,6 +148,83 @@ def find_closest_matching_word_in_line(text, direction, decrement, end_case):
     return return_dict
 
 
+def regex_obj_reducer(decrement):
+    def regex_obj_reducer_inner(acc, list_words):
+        len_list_words = len(list_words)
+        for i, to_find in enumerate(list_words):
+            next_word = get_next_index_wrap(decrement, i, len_list_words)
+            if not isinstance(to_find, list):
+                acc.update({to_find: list_words[next_word]})
+            elif len(to_find) == 2:
+                acc.update({to_find[0]: list_words[next_word][1]})
+
+        return acc
+    return regex_obj_reducer_inner
+
+
+def format_next(before, after):
+    word_attr = get_word_attr(before)
+    if word_attr == 2:
+        return after.upper()
+    if word_attr == 1:
+        return after[0].upper() + after[1:]
+    return after
+
+
+def inner_multiple_replace(mo, before, after):
+    """ Returns index, word instance or next word. start stop"""
+    return format_next(before, after)
+
+
+def multiple_replace(dict, text):
+    regex = re.compile("|".join(dict.keys()), re.I)
+    return regex.finditer(text)
+
+
+def delete_match(match='toggle_words_match'):
+    vim.command('call matchdelete(%s) | redraw!' % (match))
+
+
+def replace_all_matching_words(toggle_words, text, decrement):
+    """Find first matching word from a list of lists.
+
+    Returns index, stop, up, word instance and next word. stop start
+    this and next word. stop start
+    """
+    # TODO: re.sub("r'([^a-zA-Z])orr'([^a-zA-Z])", '\1and\2', text)
+    offset = 0
+    finish_rest = None
+    regex_object = reduce(regex_obj_reducer(decrement), toggle_words, {})
+    for i in multiple_replace(regex_object, text):
+        print i.re.pattern
+        orig = i.group(0)
+        (row, c) = vim.current.window.cursor
+        col = i.start() + offset
+        len_match = len(orig)
+        if finish_rest is None:
+            # TODO: Highlight link ToggleWords IncSearch
+            vim.command('let toggle_words_match = matchaddpos("ToggleWords", \
+                        [[%s, %s, %s]])| redraw!"' % (row, col + 1, len_match))
+            char, to_replace_orig = vim.eval('toggle_words#get_char( \
+                                        "replace match [Y/n/a/q/l]? ")')
+            response = to_replace_orig.lower()
+
+        if (finish_rest is not None or response == "\r" or response == 'y'):
+            new = i.expand(regex_object[orig.lower()])
+            cl = vim.current.line
+            vim.current.line = construct_line(cl, col, new, orig)
+            # Update accumulating offset as needed
+            offset += len(new) - len(orig)
+        elif char == '27' or response == 'q':
+            # Exit loop early if key is esc or q
+            return delete_match()
+
+        if finish_rest is None:
+            delete_match()
+        if response == 'a':
+            finish_rest = True
+
+
 def get_word_attr(word):
     """Get specific case details of the found word.
 
@@ -186,7 +263,7 @@ def ending_of_word():
     return vim.current.window.cursor
 
 
-def construct_line_by_replacement(line, begin, new, original):
+def construct_line(line, begin, new, original):
     """Construct a line to replace the original with indexing."""
     return line[:begin] + new + line[begin + len(original):]
 
@@ -227,8 +304,18 @@ def toggle_word(direction, decrement):
             vim.current.line = second_sub + current_line[col:] \
                 if direction else current_line[:col] + second_sub
         else:
-            vim.current.line = construct_line_by_replacement(
+            vim.current.line = construct_line(
                 current_line, begin, formatted_next_word,
                 match_info["match_content"])
 
-        vim.command("call cursor({row}, {start})".format(row=row, start=begin + 1))
+        vim.command("call cursor(%s, %s)" % (row, begin + 1))
+
+
+def toggle_line(decrement=None):
+    toggle_words = vim.eval('g:toggle_words_dict_current')
+    replace_all_matching_words(toggle_words, vim.current.line, decrement)
+
+
+def toggle_all_matches_in_range(decrement):
+    toggle_words = vim.eval('g:toggle_words_dict_current')
+    replace_all_matching_words(toggle_words, vim.current.range, decrement)
